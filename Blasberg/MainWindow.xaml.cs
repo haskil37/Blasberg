@@ -34,7 +34,7 @@ namespace Blasberg
         public List<Timers> TimerData = new List<Timers>();
         public List<ProgramData> ProgramData = new List<ProgramData>();
 
-        public Dictionary<string, string> DB = new Dictionary<string, string>();
+        public Dictionary<string, string> DataBase = new Dictionary<string, string>();
         public Dictionary<int, int> StartEnd = new Dictionary<int, int>();
 
         public Dictionary<string, int> TimerSE = new Dictionary<string, int>();
@@ -45,7 +45,7 @@ namespace Blasberg
 
         public BackgroundWorker backgroundWorker = new BackgroundWorker();
 
-        public Dictionary<string, int> Stek = new Dictionary<string, int>();
+        public Dictionary<string, int> Stekanie = new Dictionary<string, int>();
         #endregion
         #region Отправка выражения в парсер
         private bool Parse(string value)
@@ -62,13 +62,14 @@ namespace Blasberg
             ReadFileDB();
         }
         #region Чтение файла с программой
-        private string Path = "0000000d.AWL";
-        private List<string> tempDB = new List<string>();
+        private string Path = "3.AWL";
         private List<string> tempProgramList = new List<string>();
         private bool ReadFileDB()
         {
             if (!File.Exists(Path))
                 return false;
+                    
+            List<string> tempDB = new List<string>();
             using (StreamReader fs = new StreamReader(Path, Encoding.Default))
             {
                 int start = 0;
@@ -85,7 +86,7 @@ namespace Blasberg
                     if (temp.Contains("STRUCT") && start != 1)
                         start = 1;
                 }
-                ParseDB();
+                ParseDB(tempDB);
                 start = 0;
                 while (true)
                 {
@@ -102,82 +103,96 @@ namespace Blasberg
             FillGrid();
             return true;
         }
-        private void ParseDB()
+        private void ParseDB_Bool(ref Dictionary<string, string> DB, string currentString)
         {
-            foreach (var item in tempDB)
+            var splitCurrentString = currentString.Split(':');
+            var tempAdressCurrentString = splitCurrentString[0].Split('_');
+            var AdressCurrentString = tempAdressCurrentString[1].Split('i');
+
+            var value = "false";
+            if (splitCurrentString.Count() > 2)
+            {
+                value = splitCurrentString[2];
+                value = value.Replace(";", "");
+                value = value.Replace("=", "");
+                value = value.Trim();
+            }
+
+            if (AdressCurrentString.Count() > 1)
+                DB.Add(AdressCurrentString[0].Trim() + "." + AdressCurrentString[1].Trim(), value);
+            else
+                DB.Add(AdressCurrentString[0].Trim(), value);
+        }
+        private void ParseDB_Time(ref Dictionary<string, string> DB, string currentString)
+        {
+            var splitCurrentString = currentString.Split(':');
+            var tempAdressCurrentString = splitCurrentString[0].Split('_');
+            var AdressCurrentString = tempAdressCurrentString[1].Split('i');
+
+            var time = 0;
+            if (splitCurrentString.Count() > 2)
+            {
+                var splitTime = splitCurrentString[2].Split('#');
+                var value = splitTime[1];
+                value = value.Replace(";", "");
+                value = value.Trim();
+
+                if (value.Contains("ms"))
+                    time = Convert.ToInt32(value.Replace("ms", ""));
+                else
+                    time = Convert.ToInt32(value.Replace("s", "")) * 1000;
+            }
+
+            if (AdressCurrentString.Count() > 1)
+            {
+                DB.Add(AdressCurrentString[0].Trim() + "." + AdressCurrentString[1].Trim(), time + "ms");
+                Stekanie.Add(AdressCurrentString[0].Trim() + "." + AdressCurrentString[1].Trim(), time);
+            }
+            else
+            {
+                DB.Add(AdressCurrentString[0].Trim(), time + "ms");
+                Stekanie.Add(AdressCurrentString[0].Trim(), time);
+            }
+        }
+        private void ParseDB_Int(ref Dictionary<string, string> DB, string currentString)
+        {
+            var splitCurrentString = currentString.Split(':');
+            var tempAdressCurrentString = splitCurrentString[0].Split('_');
+            var AdressCurrentString = tempAdressCurrentString[1].Split('i');
+
+            var value = "0";
+            if (splitCurrentString.Count() > 2)
+            {
+                value = splitCurrentString[2];
+                value = value.Replace(";", "");
+                value = value.Replace("=", "");
+                value = value.Trim();
+            }
+
+            if (AdressCurrentString.Count() > 1)
+                DB.Add(AdressCurrentString[0].Trim() + "." + AdressCurrentString[1].Trim(), value);
+            else
+                DB.Add(AdressCurrentString[0].Trim(), value);
+        }
+        private void ParseDB(List<string> content)
+        {
+            foreach (var item in content)
             {
                 if (string.IsNullOrEmpty(item))
                     break;
-                var itemNew = item;
+
+                var currentString = item.ToLower();
                 if (item.Contains("//"))
-                    itemNew = item.Substring(0, item.IndexOf('/'));
-                var tempFirstString = itemNew.Split('_');
-                var tempSecondString = tempFirstString[1].Split('i');
-                string tempIndex = "";
-                if (tempSecondString.Count() > 1)
-                    tempIndex = tempSecondString[0] + "." + tempSecondString[1];
-                else
-                    tempIndex = tempSecondString[0];
-                var tempThirdString = tempFirstString[tempFirstString.Count() - 1].Split('=');
-                if (tempThirdString.Count() > 1)
-                {
-                    var endOfString = tempThirdString[1].Trim();
+                    currentString = item.Substring(0, item.IndexOf('/')).ToLower();
 
-                    if (endOfString.Contains(';'))
-                        endOfString = endOfString.Remove(endOfString.Length - 1, 1);
+                if (currentString.Contains("bool"))
+                    ParseDB_Bool(ref DataBase, currentString);
 
-                    DB.Add(tempIndex.Trim(), endOfString);
-                }
-                else
-                {
-                    if (tempThirdString[0].Contains("BOOL"))
-                        DB.Add(tempIndex, "False");
-                    else
-                        DB.Add(tempIndex, "0");
-                }
-                var tempString = itemNew.Substring(itemNew.IndexOf('_') + 1); //Дважды удаляем до знака "_"
-                tempString = tempString.Substring(tempString.IndexOf('_') + 1);
-                var tempNameP = tempString.Split(':');
-                //MemoryData result = new MemoryData("", "", "", "", "");
-                if (tempNameP.Count() > 2)
-                {
-                    var value = tempNameP[2].Replace('=', ' ');
-                    value = value.Replace(';', ' ');
-                    //if (tempNameP[1].Contains("BOOL"))
-                    //    result = new MemoryData(tempIndex, tempNameP[0].Trim(), "bool", value.Trim().ToLower(), value.Trim().ToLower());
-                    //if (tempNameP[1].Contains("INT"))
-                    //    result = new MemoryData(tempIndex, tempNameP[0].Trim(), "integer", value.Trim(), value.Trim());
-                    //if (tempNameP[1].Contains("TIME"))
-                    //    result = new MemoryData(tempIndex, tempNameP[0].Trim(), "timer", value.Trim(), value.Trim());
-                    if (tempNameP[0].Contains("Stek") && tempNameP[0].Trim() != "Stek2" && tempNameP[0].Trim() != "Stek1")
-                    {
-                        var tempTimerData = value.ToLower().Split('#');
-                        string tempTime;
-                        int newTempTime;
-                        if (tempTimerData[1].Contains("ms"))
-                        {
-                            tempTime = tempTimerData[1].Replace("ms", "");
-                            newTempTime = Convert.ToInt32(tempTime);
-                        }
-                        else
-                        {
-                            tempTime = tempTimerData[1].Replace("s", "");
-                            newTempTime = Convert.ToInt32(tempTime);
-                            newTempTime = newTempTime * 1000;
-                        }
-                        Stek.Add(tempNameP[0].Trim(), newTempTime);
-                    }
-                }
-                else
-                {
-                    //if (tempNameP[1].Contains("BOOL"))
-                    //    result = new MemoryData(tempIndex, tempNameP[0].Trim(), "bool", "false", "false");
-                    //if (tempNameP[1].Contains("INT"))
-                    //    result = new MemoryData(tempIndex, tempNameP[0].Trim(), "integer", "0", "0");
-                    //if (tempNameP[1].Contains("TIME"))
-                    //    result = new MemoryData(tempIndex, tempNameP[0].Trim(), "timer", "0", "0");
-                }
-                //MemoryGridTable.Add(result);
+                if (currentString.Contains("s5time"))
+                    ParseDB_Time(ref DataBase, currentString);
+
+                if (currentString.Contains("int"))
+                    ParseDB_Int(ref DataBase, currentString);
             }
         }
         private void FillGrid()
