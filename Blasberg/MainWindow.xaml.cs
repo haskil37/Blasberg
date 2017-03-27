@@ -32,16 +32,15 @@ namespace Blasberg
         public List<int> MarkerData = Enumerable.Repeat(0, 20).ToList();
 
         public List<Timers> TimerData = new List<Timers>();
-        public List<ProgramData> ProgramData = new List<ProgramData>();
 
+        public List<ProgramData> ProgramData = new List<ProgramData>();
         public Dictionary<string, string> DataBase = new Dictionary<string, string>();
         public Dictionary<int, int> StartEnd = new Dictionary<int, int>();
+        public Dictionary<string, int> FrontP = new Dictionary<string, int>();
+        public Dictionary<string, int> FrontN = new Dictionary<string, int>();
 
         public Dictionary<string, int> TimerSE = new Dictionary<string, int>();
         public Dictionary<string, int> TimerSA = new Dictionary<string, int>();
-
-        public Dictionary<string, int> FrontP = new Dictionary<string, int>();
-        public Dictionary<string, int> FrontN = new Dictionary<string, int>();
 
         public BackgroundWorker backgroundWorker = new BackgroundWorker();
 
@@ -76,6 +75,7 @@ namespace Blasberg
                 {
                     string temp = fs.ReadLine();
                     if (temp == null) break;
+                    temp = temp.ToUpper();
                     if (temp.Contains("END_STRUCT"))
                         break;
 
@@ -93,6 +93,7 @@ namespace Blasberg
                 {
                     string temp = fs.ReadLine();
                     if (temp == null) break;
+                    temp = temp.ToUpper();
                     if (temp.Contains("FUNCTION FC") && start != 1)
                         start = 1;
                     
@@ -107,7 +108,6 @@ namespace Blasberg
                             tempProgramList.Add(temp);
                 }
                 ParseProgramCode(tempProgramList);
-                //FillGrid();
             }
             return true;
         }
@@ -160,10 +160,10 @@ namespace Blasberg
             value = value.Replace(";", "");
             value = value.Trim();
 
-            if (value.Contains("ms"))
-                time = Convert.ToInt32(value.Replace("ms", ""));
+            if (value.Contains("MS"))
+                time = Convert.ToInt32(value.Replace("MS", ""));
             else
-                time = Convert.ToInt32(value.Replace("s", "")) * 1000;
+                time = Convert.ToInt32(value.Replace("S", "")) * 1000;
 
             return time;
         }
@@ -194,17 +194,17 @@ namespace Blasberg
                 if (string.IsNullOrEmpty(item))
                     break;
 
-                var currentString = item.ToLower();
+                var currentString = item;
                 if (item.Contains("//"))
-                    currentString = item.Substring(0, item.IndexOf('/')).ToLower();
+                    currentString = item.Substring(0, item.IndexOf('/'));
 
-                if (currentString.Contains("bool"))
+                if (currentString.Contains("BOOL"))
                     ParseDB_Bool(ref DataBase, currentString);
 
-                if (currentString.Contains("s5time"))
+                if (currentString.Contains("S5TIME"))
                     ParseDB_Time(ref DataBase, currentString);
 
-                if (currentString.Contains("int"))
+                if (currentString.Contains("INT"))
                     ParseDB_Int(ref DataBase, currentString);
             }
         }
@@ -247,7 +247,7 @@ namespace Blasberg
                     }
                     else if (contentSplit.Count == 2)
                     {
-                        if (contentSplit.Contains("S5T"))
+                        if (contentSplit[1].Contains("S5T"))
                             thirdValue = ParseTime(contentSplit[1]).ToString();
                         firstValue = contentSplit[0].Trim();
                         secondValue = contentSplit[1].Trim();
